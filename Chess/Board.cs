@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Chess;
 
@@ -47,7 +49,7 @@ public class Board
         whitePieces = whitePiecesList.ToArray();
         blackPieces = blackPiecesList.ToArray();
         _lastMove = lastMove;
-        possibleMovesPerPiece = new Dictionary<Piece, Move[]>();
+        possibleMovesPerPiece = new ();
     }
 
     private Board(Piece[] whitePieces, Piece[] blackPieces, Move? lastMove = null)
@@ -57,7 +59,7 @@ public class Board
         this.whitePieces = whitePieces;
         this.blackPieces = blackPieces;
         _lastMove = lastMove;
-        possibleMovesPerPiece = new Dictionary<Piece, Move[]>();
+        possibleMovesPerPiece = new ();
 
         foreach (var piece in whitePieces)
         {
@@ -147,9 +149,8 @@ public class Board
         }
         else
         {
-            possibleMoves = GetMoves(piece).WithinBoard().ToArray();
             var possibleMovesAfterFiltering = new List<Move>();
-            foreach (var possibleMove in possibleMoves)
+            foreach (var possibleMove in GetMoves(piece))
             {
                 // let's try to make the move and see if the king is under attack, if yes, move is not allowed
                 // it doesn't matter what we promote to
@@ -321,13 +322,14 @@ public class Board
     /// <returns></returns>
     private bool IsFieldUnderAttack(Vector field, Color color)
     {
-        var pieces = GetPieces(color);
-        foreach (var piece in pieces)
+        foreach (PieceType pieceType in Enum.GetValues(typeof(PieceType)))
         {
-            var possibleMoves = GetMoves(piece);
-            if (possibleMoves.Any(m => m.PieceNewPosition == field))
+            var pretendPiece = new Piece(pieceType, color.GetOppositeColor(), field);
+            var possibleMoves = GetMoves(pretendPiece);
+            foreach (var move in possibleMoves)
             {
-                return true;
+                if (move is Capture capture && capture.CapturedPiece.Type == pieceType)
+                    return true;
             }
         }
         return false;
