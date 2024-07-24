@@ -43,10 +43,37 @@ public class Board
             }
 
         }
+
         whitePieces = whitePiecesList.ToArray();
         blackPieces = blackPiecesList.ToArray();
         _lastMove = lastMove;
         possibleMovesPerPiece = new Dictionary<Piece, Move[]>();
+    }
+
+    private Board(Piece[] whitePieces, Piece[] blackPieces, Move? lastMove = null)
+    {
+        // TODO validate given pieces - they could be in invalid positions
+        pieces2 = new Piece[8, 8];
+        this.whitePieces = whitePieces;
+        this.blackPieces = blackPieces;
+        _lastMove = lastMove;
+        possibleMovesPerPiece = new Dictionary<Piece, Move[]>();
+
+        foreach (var piece in whitePieces)
+        {
+            if (piece.Type == PieceType.King)
+                whiteKing = piece.Position;
+
+            pieces2[piece.Position.X, piece.Position.Y] = piece;
+        }
+
+        foreach (var piece in blackPieces)
+        {
+            if (piece.Type == PieceType.King)
+                blackKing = piece.Position;
+
+            pieces2[piece.Position.X, piece.Position.Y] = piece;
+        }
     }
 
     public bool HasInsufficientMatingMaterial()
@@ -222,30 +249,55 @@ public class Board
                 movedPiece = movedPiece with { Type = promotedPiece.Value };
         }
 
-        IEnumerable<Piece> currentColorPieces = move.PieceToMove.Color == Color.WHITE ?
-            whitePieces : blackPieces;
+        var oldOppositeColorPieces =  move.PieceToMove.Color == Color.WHITE
+            ? blackPieces
+            : whitePieces;
 
-        IEnumerable<Piece> oppositeColorPieces = move.PieceToMove.Color == Color.WHITE ?
-            blackPieces : whitePieces;
-
-        currentColorPieces = currentColorPieces
-            .Where(p => p != move.PieceToMove)
-            .Append(movedPiece);
-
+        Piece[] oppositeColorPieces;
         if (move is Capture capture)
         {
-            oppositeColorPieces = oppositeColorPieces
-                .Where(piece => piece != capture.CapturedPiece);
+            oppositeColorPieces = new Piece[oldOppositeColorPieces.Length - 1];
+            var index = 0;
+            foreach (var piece in oldOppositeColorPieces)
+            {
+                if (piece != capture.CapturedPiece)
+                    oppositeColorPieces[index++] = piece;
+            }
         }
-        else if (move is Castle castle)
+        else
         {
-            var newRock = castle.Rook.Move(castle.RookPosition);
-            currentColorPieces = currentColorPieces
-                .Where(p => p != castle.Rook)
-                .Append(newRock);
+            oppositeColorPieces = oldOppositeColorPieces.ToArray();
         }
 
-        return new Board(currentColorPieces.Concat(oppositeColorPieces), move);
+        var currentColorPieces = move.PieceToMove.Color == Color.WHITE ?
+            whitePieces.ToArray() : blackPieces.ToArray();
+
+        for (int i = 0; i < currentColorPieces.Length; i++)
+        {
+            if (currentColorPieces[i] == move.PieceToMove)
+                currentColorPieces[i] = movedPiece;
+        }
+
+        if (move is Castle castle)
+        {
+            var newRock = castle.Rook.Move(castle.RookPosition);
+
+            for (int i = 0; i < currentColorPieces.Length; i++)
+            {
+                if (currentColorPieces[i] == castle.Rook)
+                    currentColorPieces[i] = newRock;
+            }
+        }
+
+        var whitePiecesAfterMove = move.PieceToMove.Color == Color.WHITE
+            ? currentColorPieces
+            : oppositeColorPieces;
+
+        var blackPiecesAfterMove = move.PieceToMove.Color == Color.BLACK
+            ? currentColorPieces
+            : oppositeColorPieces;
+
+        return new Board(whitePiecesAfterMove, blackPiecesAfterMove, move);
     }
 
     public bool IsKingUnderAttack(Color color)
