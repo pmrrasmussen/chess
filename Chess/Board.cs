@@ -1,9 +1,7 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Chess;
 
@@ -49,7 +47,7 @@ public class Board
         whitePieces = whitePiecesList.ToArray();
         blackPieces = blackPiecesList.ToArray();
         _lastMove = lastMove;
-        possibleMovesPerPiece = new ();
+        possibleMovesPerPiece = new Dictionary<Piece, Move[]>();
     }
 
     private Board(Piece[] whitePieces, Piece[] blackPieces, Move? lastMove = null)
@@ -59,7 +57,7 @@ public class Board
         this.whitePieces = whitePieces;
         this.blackPieces = blackPieces;
         _lastMove = lastMove;
-        possibleMovesPerPiece = new ();
+        possibleMovesPerPiece = new Dictionary<Piece, Move[]>();
 
         foreach (var piece in whitePieces)
         {
@@ -149,8 +147,9 @@ public class Board
         }
         else
         {
+            possibleMoves = GetMoves(piece).WithinBoard().ToArray();
             var possibleMovesAfterFiltering = new List<Move>();
-            foreach (var possibleMove in GetMoves(piece))
+            foreach (var possibleMove in possibleMoves)
             {
                 // let's try to make the move and see if the king is under attack, if yes, move is not allowed
                 // it doesn't matter what we promote to
